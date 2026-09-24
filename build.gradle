@@ -80,7 +80,7 @@ def nativeExe = tasks.register("nativeExe") {
             rename { output.name }
         }
 
-        exec {
+        project.exec {
             commandLine(
                     bootstrapPackager.absolutePath,
                     output.absolutePath,
