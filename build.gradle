@@ -16,8 +16,16 @@ version = project.version
 group = project.maven_group
 
 repositories {
+    // Fabric's Maven is occasionally only reachable via the mirror hostnames.
+    // Keep all three to avoid resolution issues in constrained environments.
     maven {
         url "https://maven.fabricmc.net"
+    }
+    maven {
+        url "https://maven2.fabricmc.net"
+    }
+    maven {
+        url "https://maven3.fabricmc.net"
     }
 
     mavenCentral()
