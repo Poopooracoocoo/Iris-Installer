@@ -3,6 +3,9 @@ name: Build test Windows EXE
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   build-test-windows-exe:
     runs-on: windows-latest
