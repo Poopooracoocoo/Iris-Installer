@@ -80,12 +80,17 @@ def nativeExe = tasks.register("nativeExe") {
             rename { output.name }
         }
 
-        project.exec {
-            commandLine(
-                    bootstrapPackager.absolutePath,
-                    output.absolutePath,
-                    installerJar.absolutePath
-            )
+        def process = new ProcessBuilder(
+                bootstrapPackager.absolutePath,
+                output.absolutePath,
+                installerJar.absolutePath
+        ).redirectErrorStream(true).start()
+
+        def processOutput = process.getInputStream().getText('UTF-8')
+        def exitCode = process.waitFor()
+
+        if (exitCode != 0) {
+            throw new GradleException("Bootstrap packager failed with exit code ${exitCode}:\n${processOutput}")
         }
     }
 }
