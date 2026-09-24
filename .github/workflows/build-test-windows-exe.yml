@@ -1,0 +1,53 @@
+name: Build test Windows EXE
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-test-windows-exe:
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out Iris Installer
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Set up NuGet
+        uses: NuGet/setup-nuget@v2
+
+      - name: Check out native bootstrap PR #15 source
+        uses: actions/checkout@v4
+        with:
+          repository: modmuss50/fabric-installer-native-bootstrap
+          ref: 7b86a5dc2515f3798728ae5960892d1390c9e428
+          path: fabric-installer-native-bootstrap
+
+      - name: Restore native bootstrap packages
+        working-directory: fabric-installer-native-bootstrap
+        run: nuget restore fabric-installer-native-bootstrap.sln
+
+      - name: Build native bootstrap and packager
+        working-directory: fabric-installer-native-bootstrap
+        run: msbuild fabric-installer-native-bootstrap.sln /p:Configuration=Release /p:Platform=x64
+
+      - name: Build Iris test EXE
+        shell: pwsh
+        run: >
+          .\gradlew.bat build
+          -PresourceBootstrap="${{ github.workspace }}\fabric-installer-native-bootstrap\x64\Release\fabric-installer-native-bootstrap.exe"
+          -PbootstrapPackager="${{ github.workspace }}\fabric-installer-native-bootstrap\x64\Release\packager.exe"
+
+      - name: Upload unsigned test EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: iris-installer-windows-test-exe
+          path: build/libs/*.exe
+          if-no-files-found: error

@@ -1,7 +1,6 @@
 plugins {
     id 'java'
     id 'application'
-    id "de.undercouch.download" version "5.6.0"
 }
 
 base {
@@ -36,27 +35,50 @@ application {
     mainClass.set(project.main_class)
 }
 
-def bootstrapVersion = "0.6.0"
-def bootstrapArch = "i686"
+def localBootstrapRoot = providers.gradleProperty("bootstrapProjectDir")
+        .orElse("../fabric-installer-native-bootstrap")
 
-def downloadBootstrap = tasks.register("downloadBootstrap", Download) {
-    src "https://maven.fabricmc.net/net/fabricmc/fabric-installer-native-bootstrap/windows-${bootstrapArch}/${bootstrapVersion}/windows-${bootstrapArch}-${bootstrapVersion}.exe"
-    dest layout.buildDirectory
-}
+def resourceBootstrap = file(providers.gradleProperty("resourceBootstrap")
+        .orElse("${localBootstrapRoot.get()}/x64/Release/fabric-installer-native-bootstrap.exe")
+        .get())
+
+def bootstrapPackager = file(providers.gradleProperty("bootstrapPackager")
+        .orElse("${localBootstrapRoot.get()}/x64/Release/packager.exe")
+        .get())
 
 def nativeExe = tasks.register("nativeExe") {
-    dependsOn(downloadBootstrap, tasks.named("jar"))
+    def jarTask = tasks.named("jar", Jar)
+    dependsOn(jarTask)
 
     def outputFile = layout.buildDirectory.file("libs/${base.archivesName.get()}-${project.version}.exe")
     outputs.file(outputFile)
     outputs.upToDateWhen { false }
 
     doLast {
+        if (!resourceBootstrap.isFile()) {
+            throw new GradleException("Resource-aware bootstrap not found at ${resourceBootstrap}. Set -PresourceBootstrap=<path> or -PbootstrapProjectDir=<checkout>.")
+        }
+        if (!bootstrapPackager.isFile()) {
+            throw new GradleException("Bootstrap packager not found at ${bootstrapPackager}. Set -PbootstrapPackager=<path> or -PbootstrapProjectDir=<checkout>.")
+        }
+
         def output = outputFile.get().asFile
-        output.delete()
-        output.createNewFile()
-        output.setBytes downloadBootstrap.get().outputFiles.first().readBytes()
-        output.append tasks.named("jar").get().archiveFile.get().asFile.readBytes()
+        def installerJar = jarTask.get().archiveFile.get().asFile
+        output.parentFile.mkdirs()
+
+        copy {
+            from resourceBootstrap
+            into output.parentFile
+            rename { output.name }
+        }
+
+        exec {
+            commandLine(
+                    bootstrapPackager.absolutePath,
+                    output.absolutePath,
+                    installerJar.absolutePath
+            )
+        }
     }
 }
 
